@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Turbo Vector is a fast top-down arcade racer prototype built for GitHub Pages." />
+    <title>Turbo Vector</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">Top-down arcade racer</p>
+          <h1>Turbo Vector</h1>
+          <p class="lede">
+            A clean, high-speed top-down racer inspired by the immediate joy of classic Amiga driving games.
+            Drift the corners, keep your speed up, and chase cleaner laps.
+          </p>
+        </div>
+        <div class="meta">
+          <span>Steer: arrows or WASD</span>
+          <span>Reset: R</span>
+        </div>
+      </header>
+
+      <main class="layout">
+        <section class="track-panel">
+          <canvas id="trackCanvas" width="960" height="640" aria-label="Turbo Vector playable track"></canvas>
+        </section>
+
+        <aside class="hud">
+          <div class="hud-card">
+            <p class="eyebrow">Telemetry</p>
+            <div class="metric"><span>Speed</span><strong id="speedValue">0</strong></div>
+            <div class="metric"><span>Lap</span><strong id="lapValue">1</strong></div>
+            <div class="metric"><span>Best</span><strong id="bestLapValue">--</strong></div>
+            <div class="metric"><span>Current</span><strong id="currentLapValue">0.0s</strong></div>
+          </div>
+
+          <div class="hud-card">
+            <p class="eyebrow">Intent</p>
+            <p>
+              The first prototype target is simple: readable handling, immediate boosty speed, and a track that makes
+              you want one more lap.
+            </p>
+          </div>
+        </aside>
+      </main>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
