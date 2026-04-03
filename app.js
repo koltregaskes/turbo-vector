@@ -20,6 +20,7 @@ const state = {
   bestLapMs: null,
   lapStart: performance.now(),
   crossedTop: false,
+  skidMarks: [],
 };
 
 function roundedRectPath(x, y, w, h, r) {
@@ -55,6 +56,7 @@ function resetCar() {
   state.car.y = 520;
   state.car.angle = -Math.PI / 2;
   state.car.speed = 0;
+  state.skidMarks = [];
 }
 
 function update(dt) {
@@ -79,6 +81,14 @@ function update(dt) {
     state.car.speed *= 0.96;
   }
 
+  if (Math.abs(state.car.speed) > 120 && (left || right)) {
+    state.skidMarks.push({ x: state.car.x, y: state.car.y, life: 1.2 });
+  }
+  state.skidMarks = state.skidMarks.filter((mark) => {
+    mark.life -= dt;
+    return mark.life > 0;
+  });
+
   if (state.car.y < 150) state.crossedTop = true;
   if (state.crossedTop && state.car.y > startLine.y && state.car.x > startLine.x && state.car.x < startLine.x + startLine.w) {
     const lapTime = performance.now() - state.lapStart;
@@ -89,18 +99,92 @@ function update(dt) {
   }
 }
 
+function drawScenery() {
+  const sky = ctx.createLinearGradient(0, 0, 0, canvas.height);
+  sky.addColorStop(0, "#78c4ff");
+  sky.addColorStop(0.38, "#c8ecff");
+  sky.addColorStop(0.39, "#2e8a76");
+  sky.addColorStop(1, "#0d442e");
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.fillStyle = "#3ba5c4";
+  ctx.beginPath();
+  ctx.moveTo(0, 340);
+  ctx.quadraticCurveTo(150, 280, 250, 310);
+  ctx.quadraticCurveTo(325, 335, 365, 420);
+  ctx.lineTo(0, 640);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = "#d9cf9b";
+  ctx.beginPath();
+  ctx.moveTo(0, 370);
+  ctx.quadraticCurveTo(155, 330, 250, 350);
+  ctx.quadraticCurveTo(315, 365, 360, 430);
+  ctx.lineTo(220, 640);
+  ctx.lineTo(0, 640);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = "#174d39";
+  ctx.fillRect(635, 110, 210, 90);
+  ctx.fillRect(655, 205, 160, 68);
+  ctx.fillRect(305, 470, 160, 78);
+
+  ctx.fillStyle = "#20384c";
+  ctx.fillRect(690, 92, 132, 185);
+  ctx.fillStyle = "#415d75";
+  for (let i = 0; i < 4; i += 1) {
+    ctx.fillRect(705 + i * 30, 106, 18, 48);
+    ctx.fillRect(705 + i * 30, 167, 18, 48);
+  }
+
+  ctx.fillStyle = "#1f2f3f";
+  ctx.fillRect(340, 456, 96, 54);
+  ctx.fillRect(340, 516, 96, 22);
+  ctx.fillStyle = "#f8de76";
+  ctx.fillRect(358, 472, 60, 14);
+
+  for (let i = 0; i < 6; i += 1) {
+    const x = 118 + i * 28;
+    const y = 426 + i * 14;
+    ctx.fillStyle = "#795739";
+    ctx.fillRect(x, y, 6, 22);
+    ctx.fillStyle = "#2c8b54";
+    ctx.beginPath();
+    ctx.arc(x + 3, y - 6, 16, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
 function drawTrack() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = "#0d442e";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  drawScenery();
 
   roundedRectPath(track.outer.x, track.outer.y, track.outer.w, track.outer.h, track.outer.r);
   ctx.fillStyle = "#2b313b";
   ctx.fill();
 
+  ctx.lineWidth = 12;
+  ctx.strokeStyle = "#d94d38";
+  roundedRectPath(track.outer.x + 8, track.outer.y + 8, track.outer.w - 16, track.outer.h - 16, track.outer.r - 8);
+  ctx.stroke();
+  ctx.strokeStyle = "#f6f0e2";
+  roundedRectPath(track.outer.x + 18, track.outer.y + 18, track.outer.w - 36, track.outer.h - 36, track.outer.r - 18);
+  ctx.stroke();
+
   roundedRectPath(track.inner.x, track.inner.y, track.inner.w, track.inner.h, track.inner.r);
   ctx.fillStyle = "#0f583a";
   ctx.fill();
+
+  ctx.lineWidth = 10;
+  ctx.strokeStyle = "#d94d38";
+  roundedRectPath(track.inner.x - 6, track.inner.y - 6, track.inner.w + 12, track.inner.h + 12, track.inner.r + 6);
+  ctx.stroke();
+  ctx.strokeStyle = "#f6f0e2";
+  roundedRectPath(track.inner.x - 15, track.inner.y - 15, track.inner.w + 30, track.inner.h + 30, track.inner.r + 15);
+  ctx.stroke();
 
   ctx.save();
   ctx.setLineDash([18, 14]);
@@ -114,6 +198,11 @@ function drawTrack() {
   for (let i = 0; i < 8; i += 1) {
     ctx.fillRect(startLine.x + i * 14, startLine.y, 8, startLine.h);
   }
+
+  state.skidMarks.forEach((mark) => {
+    ctx.fillStyle = `rgba(8, 10, 13, ${mark.life * 0.22})`;
+    ctx.fillRect(mark.x - 3, mark.y - 8, 6, 16);
+  });
 }
 
 function drawCar() {
@@ -124,6 +213,8 @@ function drawCar() {
   ctx.fillRect(-14, -24, 28, 48);
   ctx.fillStyle = "#ffd34d";
   ctx.fillRect(-10, -16, 20, 16);
+  ctx.fillStyle = "#1b2431";
+  ctx.fillRect(-10, 18, 20, 4);
   ctx.restore();
 }
 
