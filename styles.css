@@ -25,6 +25,7 @@ h1 { margin: 0 0 14px; font-size: clamp(2.2rem, 4vw, 4.2rem); }
 #trackCanvas { width: 100%; height: auto; display: block; border-radius: 18px; background: #081116; }
 .hud { display: grid; gap: 18px; }
 .hud-card { padding: 20px; }
+.site-footer { padding: 24px 4px 8px; color: var(--muted); font-size: .92rem; }
 .metric { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-top: 1px solid rgba(255,255,255,.08); }
 .metric:first-of-type { border-top: 0; }
 .metric span { color: var(--muted); text-transform: uppercase; letter-spacing: .12em; font-size: .76rem; }
