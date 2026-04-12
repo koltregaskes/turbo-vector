@@ -228,7 +228,8 @@ type ReviewSurface =
   | "standings"
   | "season-pressure"
   | "season-aftermath"
-  | "season-recovery";
+  | "season-recovery"
+  | "season-summary";
 
 function getReviewSurface(surface: string | undefined, autostart: boolean): ReviewSurface {
   if (
@@ -240,7 +241,8 @@ function getReviewSurface(surface: string | undefined, autostart: boolean): Revi
     surface === "standings" ||
     surface === "season-pressure" ||
     surface === "season-aftermath" ||
-    surface === "season-recovery"
+    surface === "season-recovery" ||
+    surface === "season-summary"
   ) {
     return surface;
   }
@@ -257,6 +259,7 @@ function getReviewSurfaceLabel(surface: ReviewSurface) {
   if (surface === "season-pressure") return "Late-season garage";
   if (surface === "season-aftermath") return "Late-season aftermath";
   if (surface === "season-recovery") return "Late-season recovery garage";
+  if (surface === "season-summary") return "Season-complete cup summary";
   return "Post-race standings";
 }
 
@@ -1480,6 +1483,18 @@ export function createTurboVectorApp(root: HTMLElement, options: TurboVectorAppO
       state.careerResolution = reviewResolution;
       state.screen = "garage";
       state.notice = "Review mode // late-season recovery garage loaded with authored fallout and next-grid management state.";
+      runtime.startGarageTheme();
+      renderAll();
+      return;
+    }
+
+    if (surface === "season-summary") {
+      const reviewResolution = manager.createReviewLateSeasonResolution();
+      clearOverlayState();
+      state.completion = reviewResolution.completion;
+      state.careerResolution = reviewResolution;
+      state.screen = "cupSummary";
+      state.notice = "Review mode // season-complete cup summary loaded with the authored final pressure ledger.";
       runtime.startGarageTheme();
       renderAll();
       return;
