@@ -1,7 +1,11 @@
 .serve.log
 .serve.err.log
+.vite-preview.log
+.vite-preview.err.log
 .DS_Store
 Thumbs.db
+node_modules/
+dist/
 
 # Local-only planning and scratch docs
 docs/local/

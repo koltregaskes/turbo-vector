@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Turbo Vector">
+  <rect width="64" height="64" rx="14" fill="#07141f" />
+  <path d="M14 38L44 18H54L30 34H50L20 52H10L34 38H14Z" fill="#ff8454" />
+  <path d="M37 18H50L36 28H24L37 18Z" fill="#ffe3c9" opacity="0.88" />
+</svg>
