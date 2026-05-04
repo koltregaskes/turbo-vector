@@ -1,4 +1,4 @@
-import Phaser from "phaser";
+﻿import Phaser from "phaser";
 import type { RaceRenderSnapshot, TrackVariant } from "../../types";
 
 type RaceSceneBridge = {
@@ -359,3 +359,4 @@ export class RaceScene extends Phaser.Scene {
     }
   }
 }
+

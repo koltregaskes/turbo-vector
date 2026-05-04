@@ -1,4 +1,4 @@
-import { RIVALS, TRACK_VARIANTS, UPGRADE_DEFINITIONS } from "./content";
+﻿import { RIVALS, TRACK_VARIANTS, UPGRADE_DEFINITIONS } from "./content";
 import { TurboVectorRuntime } from "./runtime";
 import { ChampionshipManager } from "./simulation/championship";
 import type {
@@ -1749,3 +1749,4 @@ export function createTurboVectorApp(root: HTMLElement, options: TurboVectorAppO
     launchSession(manager.beginCareer());
   }
 }
+

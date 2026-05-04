@@ -1,4 +1,4 @@
-import Phaser from "phaser";
+﻿import Phaser from "phaser";
 import { crazyGameplayStart, crazyGameplayStop, crazyHappytime } from "../integrations/crazygames";
 import { AudioManager } from "./audio/audioManager";
 import { InputController } from "./input/controller";
@@ -150,7 +150,7 @@ export class TurboVectorRuntime {
     if (completion && !this.completionNotified) {
       this.completionNotified = true;
       crazyGameplayStop();
-      // playerPosition === 1 means a podium top � fire happytime so CrazyGames
+      // playerPosition === 1 means a podium top — fire happytime so CrazyGames
       // can register a positive engagement signal for ad pacing.
       if ((completion as { playerPosition?: number }).playerPosition === 1) {
         crazyHappytime();
@@ -173,3 +173,4 @@ export class TurboVectorRuntime {
     this.game.destroy(true);
   }
 }
+
