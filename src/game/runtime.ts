@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { crazyGameplayStart, crazyGameplayStop, crazyHappytime } from "../integrations/crazygames";
 import { AudioManager } from "./audio/audioManager";
 import { InputController } from "./input/controller";
 import { BootScene } from "./phaser/scenes/BootScene";
@@ -99,14 +100,21 @@ export class TurboVectorRuntime {
     this.input.setEnabled(config.mode !== "attract");
     this.callbacks.onHudUpdate(this.activeSimulation.createHudSnapshot());
     this.audio.startTheme(config.mode === "career" || config.mode === "single" || config.mode === "timeTrial" ? "race" : "menu");
+    if (config.mode === "career" || config.mode === "single" || config.mode === "timeTrial") {
+      crazyGameplayStart();
+    } else {
+      crazyGameplayStop();
+    }
   }
 
   startGarageTheme() {
     this.audio.startTheme("garage");
+    crazyGameplayStop();
   }
 
   startMenuTheme() {
     this.audio.startTheme("menu");
+    crazyGameplayStop();
   }
 
   playUiConfirm() {
@@ -141,6 +149,12 @@ export class TurboVectorRuntime {
     const completion = this.activeSimulation.getCompletion();
     if (completion && !this.completionNotified) {
       this.completionNotified = true;
+      crazyGameplayStop();
+      // playerPosition === 1 means a podium top — fire happytime so CrazyGames
+      // can register a positive engagement signal for ad pacing.
+      if ((completion as { playerPosition?: number }).playerPosition === 1) {
+        crazyHappytime();
+      }
       this.callbacks.onRaceComplete(completion);
     }
 

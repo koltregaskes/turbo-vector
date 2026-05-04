@@ -98,7 +98,7 @@ export class RaceScene extends Phaser.Scene {
 
     this.countdownLabel = this.add
       .text(0, 0, "", {
-        fontFamily: "Rajdhani, sans-serif",
+        fontFamily: "Bahnschrift, 'Roboto Condensed', 'Arial Narrow', 'Helvetica Neue', sans-serif",
         fontSize: "116px",
         fontStyle: "700",
         color: "#fff7e0",
@@ -269,7 +269,7 @@ export class RaceScene extends Phaser.Scene {
 
     const label = this.add
       .text(snapshot.x, snapshot.y - 38, snapshot.name, {
-        fontFamily: "Rajdhani, sans-serif",
+        fontFamily: "Bahnschrift, 'Roboto Condensed', 'Arial Narrow', 'Helvetica Neue', sans-serif",
         fontSize: "18px",
         fontStyle: "700",
         color: "#f7f3ea",
