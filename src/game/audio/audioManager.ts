@@ -16,9 +16,10 @@ export class AudioManager {
   private engineOscA: OscillatorNode | null = null;
   private engineOscB: OscillatorNode | null = null;
   private themeTimer: number | null = null;
-  private themeStep = 0;
   private activeTheme: ThemeName = "menu";
   private options: AudioOptions = { ...DEFAULT_AUDIO_OPTIONS };
+  private musicTracks: Partial<Record<"menu" | "race", HTMLAudioElement>> = {};
+  private activeTrack: HTMLAudioElement | null = null;
 
   getOptions() {
     return { ...this.options };
@@ -32,6 +33,9 @@ export class AudioManager {
     this.masterNode.gain.setTargetAtTime(masterVolume, this.context!.currentTime, 0.02);
     this.musicNode.gain.setTargetAtTime(clamp(options.music, 0, 1) * 0.18, this.context!.currentTime, 0.03);
     this.sfxNode.gain.setTargetAtTime(clamp(options.sfx, 0, 1) * 0.25, this.context!.currentTime, 0.03);
+    if (this.activeTrack) {
+      this.activeTrack.volume = this.musicVolume();
+    }
   }
 
   async ensureStarted() {
@@ -90,30 +94,37 @@ export class AudioManager {
     oscillator.stop(now + durationSeconds + 0.04);
   }
 
+  private musicVolume() {
+    return this.options.muted ? 0 : clamp(this.options.master, 0, 1) * clamp(this.options.music, 0, 1);
+  }
+
+  private ensureTrack(name: "menu" | "race") {
+    let track = this.musicTracks[name];
+    if (!track) {
+      track = new Audio(new URL(`assets/audio/music-${name}.mp3`, document.baseURI).href);
+      track.loop = true;
+      track.preload = "auto";
+      this.musicTracks[name] = track;
+    }
+    return track;
+  }
+
   startTheme(theme: ThemeName) {
     this.activeTheme = theme;
     if (!this.context) return;
 
     if (this.themeTimer !== null) {
       window.clearInterval(this.themeTimer);
+      this.themeTimer = null;
     }
 
-    this.themeStep = 0;
-    const sequence =
-      theme === "race"
-        ? [110, 146.8, 165, 220, 246.9, 220]
-        : theme === "garage"
-          ? [92.5, 110, 123.4, 146.8]
-          : [82.4, 110, 138.6, 123.4];
-
-    this.themeTimer = window.setInterval(() => {
-      const note = sequence[this.themeStep % sequence.length];
-      this.playTone(note, theme === "race" ? 0.22 : 0.28, theme === "race" ? "square" : "triangle", theme === "race" ? 0.1 : 0.08, "music");
-      if (theme === "race" && this.themeStep % 2 === 0) {
-        this.playTone(note * 0.5, 0.24, "sawtooth", 0.05, "music");
-      }
-      this.themeStep += 1;
-    }, theme === "race" ? 230 : 300);
+    const nextTrack = this.ensureTrack(theme === "garage" ? "menu" : theme);
+    if (this.activeTrack && this.activeTrack !== nextTrack) {
+      this.activeTrack.pause();
+    }
+    this.activeTrack = nextTrack;
+    nextTrack.volume = this.musicVolume();
+    void nextTrack.play().catch(() => {});
   }
 
   updateEngine(speedKph: number, boosting: boolean, offTrack: boolean) {
@@ -160,6 +171,8 @@ export class AudioManager {
     if (this.themeTimer !== null) {
       window.clearInterval(this.themeTimer);
     }
+    this.activeTrack?.pause();
+    this.activeTrack = null;
 
     this.engineOscA?.stop();
     this.engineOscB?.stop();

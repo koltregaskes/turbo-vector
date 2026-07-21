@@ -7,6 +7,11 @@ if (!app) {
   throw new Error("App root not found");
 }
 
+app.style.setProperty(
+  "--tv-menu-bg",
+  `url("${new URL("assets/img/menu-bg.jpg", document.baseURI).href}")`,
+);
+
 const searchParams = new URLSearchParams(window.location.search);
 
 createTurboVectorApp(app, {

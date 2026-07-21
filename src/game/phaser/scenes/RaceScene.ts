@@ -18,6 +18,30 @@ function colorToNumber(hex: string) {
   return Phaser.Display.Color.HexStringToColor(hex).color;
 }
 
+// Kenney Racing Pack car sprites available in public/assets/sprites.
+const CAR_SPRITE_PALETTE: Array<{ key: string; r: number; g: number; b: number }> = [
+  { key: "car_red", r: 214, g: 48, b: 49 },
+  { key: "car_blue", r: 42, g: 108, b: 202 },
+  { key: "car_green", r: 76, g: 175, b: 80 },
+  { key: "car_yellow", r: 245, g: 196, b: 48 },
+  { key: "car_black", r: 42, g: 46, b: 54 },
+];
+
+/** Pick the Kenney car sprite closest to the car's assigned colour, so each racer keeps its identity. */
+function pickCarSprite(hex: string) {
+  const c = Phaser.Display.Color.HexStringToColor(hex);
+  let best = CAR_SPRITE_PALETTE[0];
+  let bestDistance = Number.POSITIVE_INFINITY;
+  for (const option of CAR_SPRITE_PALETTE) {
+    const distance = (c.red - option.r) ** 2 + (c.green - option.g) ** 2 + (c.blue - option.b) ** 2;
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      best = option;
+    }
+  }
+  return best.key;
+}
+
 function getPalette(ambience: TrackVariant["ambience"]) {
   if (ambience === "sunrise") {
     return {
@@ -256,14 +280,26 @@ export class RaceScene extends Phaser.Scene {
     }
 
     const container = this.add.container(snapshot.x, snapshot.y);
-    const shadow = this.add.ellipse(4, 6, 30, 16, 0x000000, 0.26);
-    const body = this.add.ellipse(0, 0, 30, 52, colorToNumber(snapshot.color), 1);
-    const stripe = this.add.rectangle(0, -8, 15, 12, colorToNumber(snapshot.accent), 1);
-    const canopy = this.add.rectangle(0, 6, 13, 18, colorToNumber("#14202c"), 1);
-    const rear = this.add.rectangle(0, 16, 18, 4, colorToNumber("#0c131b"), 1);
-    container.add([shadow, body, stripe, canopy, rear]);
+    const shadow = this.add.ellipse(4, 8, 34, 20, 0x000000, 0.3);
+    container.add(shadow);
+
+    const spriteKey = pickCarSprite(snapshot.color);
+    if (this.textures.exists(spriteKey)) {
+      // Kenney cars are drawn nose-up, which matches the container's heading rotation.
+      const body = this.add.image(0, 0, spriteKey);
+      body.setDisplaySize(32, 59);
+      container.add(body);
+    } else {
+      // Fallback to the original primitive car if the sprite failed to load.
+      const body = this.add.ellipse(0, 0, 30, 52, colorToNumber(snapshot.color), 1);
+      const stripe = this.add.rectangle(0, -8, 15, 12, colorToNumber(snapshot.accent), 1);
+      const canopy = this.add.rectangle(0, 6, 13, 18, colorToNumber("#14202c"), 1);
+      const rear = this.add.rectangle(0, 16, 18, 4, colorToNumber("#0c131b"), 1);
+      container.add([body, stripe, canopy, rear]);
+    }
+
     if (snapshot.isPlayer) {
-      const glow = this.add.ellipse(0, 0, 40, 62, colorToNumber("#ffdfad"), 0.08);
+      const glow = this.add.ellipse(0, 0, 44, 68, colorToNumber("#ffdfad"), 0.1);
       container.addAt(glow, 0);
     }
 
