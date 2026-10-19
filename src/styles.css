@@ -599,10 +599,12 @@ input {
 }
 
 .tv-race-hud {
+  position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
-  gap: 16px;
-  padding: 18px;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+  align-items: start;
+  gap: 12px;
+  padding: 14px;
   min-height: 100%;
 }
 
@@ -666,6 +668,109 @@ input {
 .tv-standing-name {
   color: var(--driver-color, var(--text));
   font-weight: 700;
+}
+
+/* Compact race HUD: one stat strip, a short running order and cards that fade once read. */
+.tv-hud-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 6px;
+  border-radius: 14px;
+  background: rgba(7, 13, 20, 0.74);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.tv-hud-strip .tv-hud-stat {
+  padding: 3px 10px;
+  border-radius: 10px;
+  background: transparent;
+}
+
+.tv-hud-strip .tv-hud-stat span {
+  display: block;
+  font-size: 0.62rem;
+  line-height: 1.2;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.tv-hud-strip .tv-hud-stat strong {
+  margin-top: 2px;
+  font-size: 1.05rem;
+  white-space: nowrap;
+}
+
+.tv-hud-strip .tv-hud-stat--key strong {
+  color: var(--accent);
+  font-size: 1.25rem;
+}
+
+.tv-hud-pip {
+  display: block;
+  font-size: 0.62rem;
+  font-style: normal;
+  line-height: 1.2;
+  white-space: nowrap;
+  color: #7ee2a8;
+}
+
+.tv-hud-pip[data-condition="worn"] {
+  color: #ffd27a;
+}
+
+.tv-hud-pip[data-condition="bad"] {
+  color: #ff7a6b;
+}
+
+.tv-race-hud .tv-hud-panel,
+.tv-race-hud .tv-standings-panel {
+  padding: 10px 12px;
+  border-radius: 14px;
+}
+
+.tv-race-hud .tv-hud-label {
+  margin-bottom: 4px;
+  font-size: 0.62rem;
+}
+
+.tv-race-hud .tv-hud-panel strong {
+  margin-top: 0;
+  font-size: 1rem;
+  line-height: 1.3;
+}
+
+.tv-race-hud .tv-hud-copy {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.74rem;
+  line-height: 1.4;
+}
+
+.tv-race-hud .tv-standings-list {
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.tv-race-hud .tv-standing-row {
+  padding: 3px 8px;
+  border-radius: 8px;
+  font-size: 0.84rem;
+}
+
+.tv-race-hud .tv-race-actions .tv-button {
+  padding: 8px 14px;
+  font-size: 0.82rem;
+  opacity: 0.82;
+}
+
+.tv-hud-fade {
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+
+.tv-hud-fade.is-faded {
+  opacity: 0;
+  transform: translateY(-6px);
 }
 
 .tv-race-actions {
@@ -878,3 +983,90 @@ input {
   }
 }
 
+/* Desktop race: corner HUD over a full playfield, and the page chrome steps aside. */
+@media (min-width: 721px) {
+  .tv-race-hud {
+    display: block;
+  }
+
+  .tv-race-hud .tv-hud-cluster {
+    position: absolute;
+    top: 14px;
+    gap: 8px;
+  }
+
+  .tv-race-hud .tv-hud-cluster--primary {
+    left: 14px;
+    align-items: flex-start;
+    max-width: min(560px, calc(100% - 300px));
+  }
+
+  .tv-race-hud .tv-hud-cluster--secondary {
+    right: 14px;
+    width: 250px;
+    justify-content: flex-start;
+  }
+
+  .tv-race-hud .tv-race-actions {
+    position: absolute;
+    left: 14px;
+    bottom: 14px;
+  }
+
+  .tv-race-hud .tv-touch-controls {
+    position: absolute;
+    left: 14px;
+    right: 14px;
+    bottom: 64px;
+  }
+}
+
+@media (min-width: 921px) {
+  #app[data-screen="race"] .tv-shell {
+    padding: 10px 14px;
+  }
+
+  #app[data-screen="race"] .tv-topbar {
+    align-items: center;
+    padding: 8px 18px;
+    border-radius: 18px;
+  }
+
+  #app[data-screen="race"] .tv-brand {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    min-width: 0;
+  }
+
+  #app[data-screen="race"] .tv-brand .tv-eyebrow,
+  #app[data-screen="race"] .tv-topbar__meta,
+  #app[data-screen="race"] .tv-sidebar,
+  #app[data-screen="race"] .tv-footer {
+    display: none;
+  }
+
+  #app[data-screen="race"] .tv-brand h1 {
+    margin: 0;
+    font-size: 1.7rem;
+  }
+
+  #app[data-screen="race"] .tv-topbar__summary {
+    max-width: none;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    line-height: 1.2;
+  }
+
+  #app[data-screen="race"] .tv-layout {
+    grid-template-columns: minmax(0, 1fr);
+    margin-top: 10px;
+  }
+
+  #app[data-screen="race"] .tv-stage-shell {
+    min-height: 520px;
+    height: calc(100vh - 86px);
+    height: calc(100dvh - 86px);
+  }
+}

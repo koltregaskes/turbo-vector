@@ -345,8 +345,14 @@ export function createTurboVectorApp(root: HTMLElement, options: TurboVectorAppO
         damage: HTMLElement;
         hazard: HTMLElement;
         standings: HTMLElement;
+        eventPanel: HTMLElement;
+        crewPanel: HTMLElement;
       }
     | null = null;
+  // Crew Chief and Event cards fade out a few seconds after their copy changes so the playfield stays clear.
+  const HUD_CARD_FADE_MS = 6000;
+  let crewHintText = "";
+  let crewHintShownAt = 0;
 
   const runtime = new TurboVectorRuntime(gameRoot, {
     onHudUpdate: (snapshot) => {
@@ -599,32 +605,34 @@ export function createTurboVectorApp(root: HTMLElement, options: TurboVectorAppO
     overlayLayer.innerHTML = `
       <div class="tv-race-hud">
         <div class="tv-hud-cluster tv-hud-cluster--primary">
-          <div class="tv-hud-panel">
+          <div class="tv-hud-grid tv-hud-strip">
+            <div class="tv-hud-stat tv-hud-stat--key"><span>Pos</span><strong id="hudPosition">--</strong></div>
+            <div class="tv-hud-stat"><span>Lap</span><strong id="hudLap">--</strong></div>
+            <div class="tv-hud-stat"><span>Speed</span><strong id="hudSpeed">--</strong></div>
+            <div class="tv-hud-stat"><span>Boost</span><strong id="hudBoost">--</strong></div>
+            <div class="tv-hud-stat">
+              <span>Condition</span><strong id="hudCondition">--</strong>
+              <em id="hudDamage" class="tv-hud-pip">--</em>
+            </div>
+            <div class="tv-hud-stat"><span>Best</span><strong id="hudBest">--</strong></div>
+            <div class="tv-hud-stat"><span>Last</span><strong id="hudLast">--</strong></div>
+          </div>
+          <div id="hudEventPanel" class="tv-hud-panel tv-hud-panel--event tv-hud-fade">
             <span class="tv-hud-label">Event</span>
             <strong id="hudTitle">--</strong>
             <span id="hudObjective" class="tv-hud-copy">--</span>
           </div>
-          <div class="tv-hud-grid">
-            <div class="tv-hud-stat"><span>Position</span><strong id="hudPosition">--</strong></div>
-            <div class="tv-hud-stat"><span>Lap</span><strong id="hudLap">--</strong></div>
-            <div class="tv-hud-stat"><span>Speed</span><strong id="hudSpeed">--</strong></div>
-            <div class="tv-hud-stat"><span>Condition</span><strong id="hudCondition">--</strong></div>
-            <div class="tv-hud-stat"><span>Boost</span><strong id="hudBoost">--</strong></div>
-            <div class="tv-hud-stat"><span>Damage</span><strong id="hudDamage">--</strong></div>
-            <div class="tv-hud-stat"><span>Best Lap</span><strong id="hudBest">--</strong></div>
-            <div class="tv-hud-stat"><span>Last Lap</span><strong id="hudLast">--</strong></div>
-          </div>
         </div>
 
         <div class="tv-hud-cluster tv-hud-cluster--secondary">
-          <div class="tv-hud-panel">
-            <span class="tv-hud-label">Crew Chief</span>
-            <strong id="hudTutorial">Hold the line.</strong>
-            <span id="hudHazard" class="tv-hud-copy">--</span>
-          </div>
           <div class="tv-standings-panel">
             <span class="tv-hud-label">Running Order</span>
             <div id="hudStandings" class="tv-standings-list"></div>
+          </div>
+          <div id="hudCrewPanel" class="tv-hud-panel tv-hud-panel--crew tv-hud-fade">
+            <span class="tv-hud-label">Crew Chief</span>
+            <strong id="hudTutorial">Hold the line.</strong>
+            <span id="hudHazard" class="tv-hud-copy">--</span>
           </div>
         </div>
 
@@ -657,7 +665,11 @@ export function createTurboVectorApp(root: HTMLElement, options: TurboVectorAppO
       damage: overlayLayer.querySelector<HTMLElement>("#hudDamage")!,
       hazard: overlayLayer.querySelector<HTMLElement>("#hudHazard")!,
       standings: overlayLayer.querySelector<HTMLElement>("#hudStandings")!,
+      eventPanel: overlayLayer.querySelector<HTMLElement>("#hudEventPanel")!,
+      crewPanel: overlayLayer.querySelector<HTMLElement>("#hudCrewPanel")!,
     };
+    crewHintText = "";
+    crewHintShownAt = 0;
 
     runtime.bindTouchControls(overlayLayer);
   }
@@ -675,10 +687,23 @@ export function createTurboVectorApp(root: HTMLElement, options: TurboVectorAppO
     raceHudRefs.best.textContent = formatShortTime(snapshot.bestLapMs);
     raceHudRefs.last.textContent = formatShortTime(snapshot.lastLapMs);
     raceHudRefs.objective.textContent = snapshot.objective;
-    raceHudRefs.tutorial.textContent = snapshot.tutorialHint ?? "Drive smooth and keep the shell alive.";
+    const hintText = snapshot.tutorialHint ?? "Drive smooth and keep the shell alive.";
+    if (hintText !== crewHintText || snapshot.countdown > 0) {
+      // A new hint (or the grid countdown) restarts the card's visible window.
+      crewHintText = hintText;
+      crewHintShownAt = snapshot.elapsedMs;
+      raceHudRefs.tutorial.textContent = hintText;
+    }
+    // Race time (not wall time), so a slow frame rate does not cut the read time short.
+    raceHudRefs.crewPanel.classList.toggle("is-faded", snapshot.elapsedMs - crewHintShownAt > HUD_CARD_FADE_MS);
+    // elapsedMs includes the ~3.2 s grid countdown, so the event card stays up for about 6 s of racing.
+    raceHudRefs.eventPanel.classList.toggle("is-faded", snapshot.countdown <= 0 && snapshot.elapsedMs > HUD_CARD_FADE_MS + 3200);
     raceHudRefs.damage.textContent = snapshot.damageLabel;
+    raceHudRefs.damage.dataset.condition = snapshot.condition >= 80 ? "good" : snapshot.condition >= 58 ? "worn" : "bad";
     raceHudRefs.hazard.textContent = snapshot.hazardNotes;
+    // Running Order stays compact: the podium places plus the player.
     raceHudRefs.standings.innerHTML = snapshot.standings
+      .filter((entry) => entry.rank <= 3 || entry.isPlayer)
       .map(
         (entry) => `
           <div class="tv-standing-row ${entry.isPlayer ? "is-player" : ""}">
