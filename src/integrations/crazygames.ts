@@ -7,6 +7,10 @@
  * Calls are therefore gated on the page being served by, or framed inside, a
  * CrazyGames domain. Everywhere else every call here is a silent no-op.
  *
+ * The v3 SDK must be initialised (`await SDK.init()`) before any other call, so
+ * `initCrazyGames()` runs once at boot on CrazyGames hosts and every call below
+ * stays a no-op until it has resolved.
+ *
  * Lifecycle contract:
  *   - call `crazyGameplayStart()` when an actual race begins
  *   - call `crazyGameplayStop()` when the race ends, pauses, or returns to menu
@@ -19,6 +23,7 @@ interface CrazyGamesGameModule {
 }
 
 interface CrazyGamesSDK {
+  init?: () => Promise<void>;
   game?: CrazyGamesGameModule;
 }
 
@@ -34,6 +39,7 @@ declare global {
 
 let gameplayActive = false;
 let insideCrazyGames: boolean | null = null;
+let sdkState: "idle" | "initialising" | "ready" | "failed" = "idle";
 
 const CRAZYGAMES_HOST = /(^|\.)crazygames\.(com|[a-z]{2}|co\.[a-z]{2}|com\.[a-z]{2})$/i;
 
@@ -66,9 +72,42 @@ function isInsideCrazyGames(): boolean {
   return insideCrazyGames;
 }
 
-function getSdk(): CrazyGamesSDK | null {
+function getHostSdk(): CrazyGamesSDK | null {
   if (typeof window === "undefined" || !isInsideCrazyGames()) return null;
   return window.CrazyGames?.SDK ?? null;
+}
+
+/** The SDK, once it is initialised on a CrazyGames host; null everywhere else. */
+function getSdk(): CrazyGamesSDK | null {
+  return sdkState === "ready" ? getHostSdk() : null;
+}
+
+/**
+ * Initialise the SDK once. Safe to call anywhere: off CrazyGames it does nothing. A race that
+ * started while init was pending is reported as soon as init resolves.
+ */
+export function initCrazyGames(): void {
+  if (sdkState !== "idle") return;
+  const sdk = getHostSdk();
+  if (!sdk) return;
+  sdkState = "initialising";
+  Promise.resolve()
+    .then(() => sdk.init?.())
+    .then(
+      () => {
+        sdkState = "ready";
+        if (!gameplayActive) return;
+        try {
+          sdk.game?.gameplayStart?.();
+        } catch (error) {
+          console.warn("[crazygames] gameplayStart failed:", error);
+        }
+      },
+      (error: unknown) => {
+        sdkState = "failed";
+        console.warn("[crazygames] SDK init failed:", error);
+      },
+    );
 }
 
 export function crazyGameplayStart(): void {
