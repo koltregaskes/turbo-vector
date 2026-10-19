@@ -61,6 +61,10 @@ export class TurboVectorRuntime {
       const width = Math.max(720, mount.clientWidth);
       const height = Math.max(520, mount.clientHeight);
       this.game.scale.resize(width, height);
+      // In RESIZE mode the canvas follows Phaser's cached parent bounds, which resize() only re-reads at
+      // its very end. Refresh once more so a layout change (entering the race layout) applies at once
+      // instead of leaving the canvas at its old size.
+      this.game.scale.refresh();
     });
     this.resizeObserver.observe(mount);
   }
