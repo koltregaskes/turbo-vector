@@ -70,7 +70,8 @@ const marinaDecorations: MarinaDecoration[] = [
   { kind: "building", position: { x: 1120, y: 860 }, width: 200, height: 132, tint: "#1f3241" },
   { kind: "building", position: { x: 1035, y: 470 }, width: 180, height: 96, tint: "#26384a" },
   { kind: "grandstand", position: { x: 980, y: 1290 }, width: 360, height: 72, tint: "#4c5968" },
-  { kind: "grandstand", position: { x: 630, y: 1160 }, width: 200, height: 68, tint: "#45515e" },
+  // Infield, facing the start straight. At (630, 1160) the stand sat on the asphalt under the back of the grid.
+  { kind: "grandstand", position: { x: 740, y: 930 }, width: 200, height: 68, tint: "#45515e" },
   { kind: "tower", position: { x: 1680, y: 280 }, width: 82, height: 180, tint: "#3a4758" },
   { kind: "crane", position: { x: 1400, y: 1180 }, width: 180, height: 110, tint: "#e4b54a" },
   { kind: "lights", position: { x: 1210, y: 1240 }, width: 130, height: 48, tint: "#fee09a" },
