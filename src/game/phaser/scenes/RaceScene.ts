@@ -42,6 +42,23 @@ function pickCarSprite(hex: string) {
   return best.key;
 }
 
+// Kenney Racing Pack trackside props (loaded in BootScene). Native pixel sizes, used to keep aspect ratios.
+const TRIBUNE_SIZE = { width: 448, height: 223 };
+const BARRIER_SIZE = { width: 210, height: 62 };
+
+function nearestCenterlinePoint(centerline: TrackVariant["centerline"], x: number, y: number) {
+  let best = centerline[0];
+  let bestDistance = Number.POSITIVE_INFINITY;
+  for (const point of centerline) {
+    const distance = (point.x - x) ** 2 + (point.y - y) ** 2;
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      best = point;
+    }
+  }
+  return best;
+}
+
 function getPalette(ambience: TrackVariant["ambience"]) {
   if (ambience === "sunrise") {
     return {
@@ -99,7 +116,9 @@ export class RaceScene extends Phaser.Scene {
   private backgroundLayer!: Phaser.GameObjects.Graphics;
   private trackLayer!: Phaser.GameObjects.Graphics;
   private decorationLayer!: Phaser.GameObjects.Graphics;
+  private decorationSprites!: Phaser.GameObjects.Container;
   private hazardLayer!: Phaser.GameObjects.Graphics;
+  private hazardSprites!: Phaser.GameObjects.Container;
   private countdownLabel!: Phaser.GameObjects.Text;
   private currentVariantId = "";
   private followTargetId = "";
@@ -118,7 +137,10 @@ export class RaceScene extends Phaser.Scene {
     this.backgroundLayer = this.add.graphics();
     this.trackLayer = this.add.graphics();
     this.decorationLayer = this.add.graphics();
+    // Sprite containers sit in the display list next to their Graphics layers, so cars always draw on top.
+    this.decorationSprites = this.add.container(0, 0);
     this.hazardLayer = this.add.graphics();
+    this.hazardSprites = this.add.container(0, 0);
 
     this.countdownLabel = this.add
       .text(0, 0, "", {
@@ -205,11 +227,96 @@ export class RaceScene extends Phaser.Scene {
     }
   }
 
+  /**
+   * Swap a decoration's drawn shape for Kenney sprites. Returns false when the kind has no sprite
+   * (crane, pier, yacht) or the texture failed to load, so the caller draws the original shape.
+   */
+  private addDecorationSprites(decoration: TrackVariant["decorations"][number], index: number, variant: TrackVariant) {
+    const { x, y } = decoration.position;
+    const add = (key: string, px: number, py: number) => {
+      const image = this.add.image(px, py, key);
+      this.decorationSprites.add(image);
+      return image;
+    };
+
+    if (decoration.kind === "grandstand") {
+      const key = "tribune_full";
+      if (!this.textures.exists(key)) return false;
+      // The Kenney tribune seats face down the image. Keep the wide footprint the layout was designed
+      // with, and flip it to face up when the nearest stretch of track is above the stand.
+      const target = nearestCenterlinePoint(variant.centerline, x, y);
+      const scale = Math.min(decoration.width / TRIBUNE_SIZE.width, (decoration.height * 1.6) / TRIBUNE_SIZE.height);
+      add(key, x, y).setScale(scale).setRotation(target.y < y ? Math.PI : 0);
+      return true;
+    }
+
+    if (decoration.kind === "palm") {
+      const large = index % 2 === 0;
+      const key = large ? "tree_large" : "tree_small";
+      if (!this.textures.exists(key)) return false;
+      const size = decoration.width * (large ? 1.7 : 1.4);
+      add(key, x, y).setDisplaySize(size, size);
+      return true;
+    }
+
+    if (decoration.kind === "building" || decoration.kind === "tower") {
+      const key = index % 2 === 0 ? "tent_red_large" : "tent_blue_large";
+      if (!this.textures.exists(key)) return false;
+      // Fill the footprint with one or two square tents along its long side.
+      const horizontal = decoration.width >= decoration.height;
+      const long = Math.max(decoration.width, decoration.height);
+      const short = Math.min(decoration.width, decoration.height);
+      const count = Phaser.Math.Clamp(Math.round(long / short), 1, 2);
+      const size = Math.min(short * 1.05, long / count);
+      for (let tent = 0; tent < count; tent += 1) {
+        const offset = (tent - (count - 1) / 2) * size;
+        add(key, horizontal ? x + offset : x, horizontal ? y : y + offset).setDisplaySize(size, size);
+      }
+      return true;
+    }
+
+    if (decoration.kind === "lights") {
+      if (!this.textures.exists("tires_red") || !this.textures.exists("tires_white")) return false;
+      // Light rigs become a row of alternating tyre stacks.
+      const size = 38;
+      const count = Math.max(2, Math.round(decoration.width / (size + 4)));
+      for (let stack = 0; stack < count; stack += 1) {
+        const offset = (stack - (count - 1) / 2) * (size + 4);
+        add(stack % 2 === 0 ? "tires_red" : "tires_white", x + offset, y).setDisplaySize(size, size);
+      }
+      return true;
+    }
+
+    return false;
+  }
+
+  private hasBarrierSprites() {
+    return this.textures.exists("barrier_red") && this.textures.exists("barrier_white");
+  }
+
+  private addHazardSprites(variant: TrackVariant) {
+    if (!this.hasBarrierSprites()) return;
+    const width = 44;
+    const height = width * (BARRIER_SIZE.height / BARRIER_SIZE.width);
+    variant.hazards
+      .filter((hazard) => hazard.type === "barrier")
+      .forEach((hazard) => {
+        for (let segment = -1; segment <= 1; segment += 1) {
+          const image = this.add
+            .image(hazard.position.x + segment * (width + 2), hazard.position.y, segment === 0 ? "barrier_white" : "barrier_red")
+            .setDisplaySize(width, height);
+          this.hazardSprites.add(image);
+        }
+      });
+  }
+
   private drawTrack(variant: TrackVariant) {
     const palette = getPalette(variant.ambience);
     this.backgroundLayer.clear();
     this.trackLayer.clear();
     this.decorationLayer.clear();
+    this.decorationSprites.removeAll(true);
+    this.hazardSprites.removeAll(true);
 
     this.cameras.main.setBackgroundColor(palette.sky);
 
@@ -223,9 +330,12 @@ export class RaceScene extends Phaser.Scene {
     this.backgroundLayer.fillStyle(colorToNumber(palette.waterEdge), 0.22);
     this.backgroundLayer.fillEllipse(390, 690, 500, 880);
 
-    variant.decorations.forEach((decoration) => {
-      this.drawDecoration(this.decorationLayer, decoration, palette);
+    variant.decorations.forEach((decoration, index) => {
+      if (!this.addDecorationSprites(decoration, index, variant)) {
+        this.drawDecoration(this.decorationLayer, decoration, palette);
+      }
     });
+    this.addHazardSprites(variant);
 
     const linePoints = variant.centerline;
     this.trackLayer.lineStyle(variant.width + 34, colorToNumber(palette.curbA), 1);
@@ -321,6 +431,7 @@ export class RaceScene extends Phaser.Scene {
 
   private drawHazards(snapshot: RaceRenderSnapshot, timeSeconds: number) {
     const palette = getPalette(snapshot.variant.ambience);
+    const barrierSprites = this.hasBarrierSprites();
     this.hazardLayer.clear();
 
     snapshot.variant.hazards.forEach((hazard, index) => {
@@ -329,6 +440,8 @@ export class RaceScene extends Phaser.Scene {
         this.hazardLayer.fillStyle(colorToNumber("#090b10"), 0.48);
         this.hazardLayer.fillEllipse(hazard.position.x, hazard.position.y, hazard.radius * 2.1 * pulse, hazard.radius * 1.5 * pulse);
       } else if (hazard.type === "barrier") {
+        // Barrier rows are sprites (addHazardSprites); the triangles are only the fallback.
+        if (barrierSprites) return;
         this.hazardLayer.fillStyle(colorToNumber("#f0ab3b"), 1);
         for (let marker = -1; marker <= 1; marker += 1) {
           this.hazardLayer.fillTriangle(
