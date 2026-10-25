@@ -67,6 +67,7 @@ type CarState = {
   condition: number;
   boost: number;
   boosting: boolean;
+  drafting: boolean;
   offTrack: boolean;
   contactCooldown: number;
   baseStats: RuntimeStats;
@@ -107,6 +108,18 @@ function subtract(a: Vector2, b: Vector2): Vector2 {
 
 function distance(a: Vector2, b: Vector2) {
   return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+export function slipstreamPull(follower: { x: number; y: number; heading: number }, leader: { x: number; y: number }) {
+  const forward = { x: Math.cos(follower.heading), y: Math.sin(follower.heading) };
+  const toLeader = { x: leader.x - follower.x, y: leader.y - follower.y };
+  const gap = Math.hypot(toLeader.x, toLeader.y);
+  if (gap < 26 || gap > 96) return 0;
+  const align = (toLeader.x * forward.x + toLeader.y * forward.y) / gap;
+  if (align < 0.86) return 0;
+  const lateral = Math.abs(toLeader.x * -forward.y + toLeader.y * forward.x);
+  if (lateral > 26) return 0;
+  return 52 * align * (1 - (gap - 26) / 70);
 }
 
 function wrapAngle(angle: number) {
@@ -304,6 +317,7 @@ export class RaceSimulation {
         condition: driver.isPlayer ? config.playerCondition : 96,
         boost: boostCapacity,
         boosting: false,
+        drafting: false,
         offTrack: false,
         contactCooldown: 0,
         baseStats,
@@ -400,6 +414,15 @@ export class RaceSimulation {
       steer: clamp(angleDelta * 2.3, -1, 1),
       boost,
     };
+  }
+
+  private strongestSlipstream(car: CarState) {
+    let strongest = 0;
+    for (const other of this.cars) {
+      if (other === car || other.finishTimeMs !== null) continue;
+      strongest = Math.max(strongest, slipstreamPull(car, other));
+    }
+    return strongest;
   }
 
   private applyHazards(car: CarState, projection: Projection, stats: RuntimeStats) {
@@ -656,8 +679,17 @@ export class RaceSimulation {
         car.boost = Math.min(stats.boostCapacity, car.boost + stats.boostRecharge * dt);
       }
 
+      const pull = this.strongestSlipstream(car);
+      car.drafting = pull > 0 && !countdownLocked && car.finishTimeMs === null;
+      if (car.drafting) {
+        forwardSpeed += pull * dt;
+        if (!car.boosting) {
+          car.boost = Math.min(stats.boostCapacity, car.boost + 6 * dt);
+        }
+      }
+
       lateralSpeed = lerp(lateralSpeed, 0, clamp(stats.grip * surface.gripFactor * dt, 0, 1));
-      forwardSpeed = clamp(forwardSpeed, 0, surface.speedCap + (car.boosting ? 32 : 0));
+      forwardSpeed = clamp(forwardSpeed, 0, surface.speedCap + (car.boosting ? 32 : 0) + (car.drafting ? 16 : 0));
 
       car.vx = forward.x * forwardSpeed + right.x * lateralSpeed;
       car.vy = forward.y * forwardSpeed + right.y * lateralSpeed;
@@ -735,6 +767,7 @@ export class RaceSimulation {
 
     const tutorialHint = (() => {
       if (this.config.mode === "attract") return null;
+      if (this.playerCar.drafting) return "Draft. Stay tucked behind the car ahead and it pulls you down the straight.";
       if (this.config.variant.eventType === "showdown" && this.elapsedMs < 12000) {
         return "Showdown rounds cut the field down to headline names. There is nowhere to hide a lazy lap.";
       }
@@ -780,6 +813,7 @@ export class RaceSimulation {
       hazardNotes: `${this.config.variant.weatherLabel} // ${this.config.variant.hazardNotes}`,
       damageLabel,
       boosting: this.playerCar.boosting,
+      drafting: this.playerCar.drafting,
       offTrack: this.playerCar.offTrack,
     };
   }

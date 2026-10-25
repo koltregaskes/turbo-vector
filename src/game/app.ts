@@ -671,7 +671,8 @@ export function createTurboVectorApp(root: HTMLElement, options: TurboVectorAppO
     raceHudRefs.lap.textContent = `${snapshot.lap} / ${snapshot.totalLaps}`;
     raceHudRefs.speed.textContent = `${snapshot.speedKph} km/h`;
     raceHudRefs.condition.textContent = `${snapshot.condition}%`;
-    raceHudRefs.boost.textContent = `${snapshot.boost}%`;
+    raceHudRefs.boost.textContent = snapshot.drafting ? `DRAFT ${snapshot.boost}%` : `${snapshot.boost}%`;
+    raceHudRefs.boost.parentElement?.classList.toggle("is-drafting", snapshot.drafting);
     raceHudRefs.best.textContent = formatShortTime(snapshot.bestLapMs);
     raceHudRefs.last.textContent = formatShortTime(snapshot.lastLapMs);
     raceHudRefs.objective.textContent = snapshot.objective;
@@ -1364,6 +1365,7 @@ export function createTurboVectorApp(root: HTMLElement, options: TurboVectorAppO
           <ul class="tv-bullet-list">
             <li>Throttle / Brake: Arrow keys or WASD</li>
             <li>Boost: Space or Shift once you have nitro</li>
+            <li>Draft: tuck in behind a rival on a straight</li>
             <li>Restart event: R or the HUD button</li>
           </ul>
         `

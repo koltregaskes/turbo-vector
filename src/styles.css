@@ -651,6 +651,10 @@ input {
   font-size: 1.3rem;
 }
 
+.tv-hud-stat.is-drafting strong {
+  color: #9af6ff;
+}
+
 .tv-standings-list {
   display: grid;
   gap: 8px;

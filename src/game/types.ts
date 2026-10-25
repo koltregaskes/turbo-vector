@@ -347,6 +347,7 @@ export type RaceHudSnapshot = {
   hazardNotes: string;
   damageLabel: string;
   boosting: boolean;
+  drafting: boolean;
   offTrack: boolean;
 };
 
