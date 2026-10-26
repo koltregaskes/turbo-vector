@@ -82,7 +82,8 @@ function getSafeActivePressureCallKey(callKey: PressureCallKey | null | undefine
 function evaluateSponsorContract(contract: SponsorContractDefinition, completion: RaceCompletion): SponsorContractOutcome {
   const objective = contract.objective;
   const variant = getVariantById(completion.variantId);
-  const finishOk = completion.playerResult.finishPosition <= objective.requiredFinish;
+  const classifiedFinish = completion.playerResult.didNotFinish !== true;
+  const finishOk = classifiedFinish && completion.playerResult.finishPosition <= objective.requiredFinish;
   const conditionOk = objective.minCondition === undefined || completion.playerResult.condition >= objective.minCondition;
   const eventOk = !objective.eventTypes || objective.eventTypes.includes(variant.eventType);
   const locationOk = !objective.locations || objective.locations.includes(completion.location);
