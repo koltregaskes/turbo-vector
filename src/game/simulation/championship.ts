@@ -188,6 +188,7 @@ function loadProfile(): PlayerProfile {
         sponsorTargetHit: entry.sponsorTargetHit ?? false,
         purseEarned: entry.purseEarned ?? 0,
         finishPosition: entry.finishPosition ?? 7,
+        didNotFinish: entry.didNotFinish ?? false,
         conditionAfter: entry.conditionAfter ?? profile.condition,
         bestLapMs: entry.bestLapMs ?? null,
         pressureCallLabel: entry.pressureCallLabel ?? activePressureCall?.label ?? null,
@@ -260,26 +261,49 @@ function createDriverGrid(variant: TrackVariant, includeRivals: boolean): Driver
   ];
 }
 
+function ordinalPlace(position: number) {
+  if (position === 1) return "1st";
+  if (position === 2) return "2nd";
+  if (position === 3) return "3rd";
+  return `${position}th`;
+}
+
+export function describeCupResult(standings: DriverStanding[]) {
+  const playerIndex = Math.max(0, standings.findIndex((entry) => entry.isPlayer));
+  const player = standings[playerIndex];
+  const leader = standings[0];
+  const champion = Boolean(leader?.isPlayer);
+
+  if (champion) {
+    return {
+      title: "Champion" as const,
+      summary: `Seven rounds are complete. You lead the points table with ${player?.points ?? 0} and the cup names you champion.`,
+    };
+  }
+
+  return {
+    title: "Also-ran" as const,
+    summary: `Seven rounds are complete. ${leader?.name ?? "The leader"} leads the points table with ${leader?.points ?? 0}. You finish ${ordinalPlace(playerIndex + 1)} on ${player?.points ?? 0}, an also-ran.`,
+  };
+}
+
 function buildStoryBeat(
   completion: RaceCompletion,
   roundIndex: number,
   careerFinished: boolean,
   contractOutcome: SponsorContractOutcome | null,
   pressureOutcome: PressureCallOutcome | null,
+  profile: PlayerProfile,
 ) {
   let baseMessage = "";
 
   if (careerFinished) {
-    if (completion.playerResult.finishPosition === 1) {
-      baseMessage =
-        "You finish the seven-round season with a car that earned its upgrades and a field that finally feels like a real commercial racer instead of a sketch.";
-    } else if (completion.playerResult.finishPosition <= 3) {
-      baseMessage =
-        "You close the season with a credible podium run and enough momentum that the next full-career build can go bigger without changing the fantasy.";
-    } else {
-      baseMessage =
-        "You survive the season more than you dominate it, which is still useful: the progression loop now has enough weight to support a full-game career.";
+    baseMessage = describeCupResult(profile.standings).summary;
+    if (completion.playerResult.didNotFinish) {
+      baseMessage = `${baseMessage} The last race was a DNF after the car hit 0% condition.`;
     }
+  } else if (completion.playerResult.didNotFinish) {
+    baseMessage = "Condition hit zero, so this heat ends as a DNF. The season continues, and this round scores no points.";
   } else if (completion.eventTypeLabel === "Showdown") {
     baseMessage =
       "The smaller-field showdown proves the career can do more than one race format without abandoning the handling model.";
@@ -292,6 +316,10 @@ function buildStoryBeat(
   } else {
     baseMessage =
       "The calendar keeps widening. Every garage visit should feel more like season management and less like a between-race menu.";
+  }
+
+  if (careerFinished) {
+    return baseMessage;
   }
 
   let finalMessage = baseMessage;
@@ -332,23 +360,19 @@ function createDeterministicReviewCompletion(
     },
     new Map<string, number>([[player.id, playerFinishPosition]]),
   );
-  const orderedDrivers: DriverGridEntry[] = [];
-  const assignedDriverIds = new Set<string>();
-
-  for (let index = 1; index <= session.drivers.length; index += 1) {
-    const fixedDriver = session.drivers.find((driver) => fixedPlacements.get(driver.id) === index && !assignedDriverIds.has(driver.id));
-    if (fixedDriver) {
-      orderedDrivers.push(fixedDriver);
-      assignedDriverIds.add(fixedDriver.id);
-      continue;
-    }
-
-    const nextDriver = session.drivers.find((driver) => !assignedDriverIds.has(driver.id));
-    if (nextDriver) {
-      orderedDrivers.push(nextDriver);
-      assignedDriverIds.add(nextDriver.id);
-    }
-  }
+  const slots: Array<DriverGridEntry | undefined> = Array.from({ length: session.drivers.length });
+  session.drivers.forEach((driver) => {
+    const place = fixedPlacements.get(driver.id);
+    if (!place || slots[place - 1]) return;
+    slots[place - 1] = driver;
+  });
+  let cursor = 0;
+  session.drivers.forEach((driver) => {
+    if (slots.includes(driver)) return;
+    while (slots[cursor]) cursor += 1;
+    slots[cursor] = driver;
+  });
+  const orderedDrivers = slots.filter((driver): driver is DriverGridEntry => Boolean(driver));
 
   const isEnduranceRound = session.variant.eventType === "endurance";
   const baseFinishTime = isEnduranceRound ? 176_400 : 93_600;
@@ -442,14 +466,15 @@ function buildPressureAftermath(
           ? `${pressureOutcome.summary} The standings swing moved ${Math.abs(pointsGapSwing)} points away from you.`
           : `${pressureOutcome.summary} The title gap held steady, so the next grid still matters just as much.`
       : pressureOutcome.summary;
-  const recommendation =
-    completion.playerResult.condition <= 58
-      ? `The shell is down to ${completion.playerResult.condition}%. Patch the car before ${nextHeat?.name ?? "the next heat"} or the pressure call will leave a repair scar.`
+  const recommendation = !nextHeat
+    ? "The seven rounds are complete. This points table is the season result."
+    : completion.playerResult.condition <= 58
+      ? `The shell is down to ${completion.playerResult.condition}%. Patch the car before ${nextHeat.name} or the pressure call will leave a repair scar.`
       : pressureOutcome.bonusCredits > 0
-        ? `Bank the bonus and decide whether ${nextHeat?.name ?? "the next heat"} gets a fresh upgrade push or a calmer service stop.`
+        ? `Bank the bonus and decide whether ${nextHeat.name} gets a fresh upgrade push or a calmer service stop.`
         : pressureOutcome.success
-          ? `Carry the momentum into ${nextHeat?.name ?? "the next heat"}, but avoid turning a landed call into a reckless follow-up.`
-          : `Reset the garage tone before ${nextHeat?.name ?? "the next heat"}. The rivalry is still alive, so the next clean result matters more than another stunt.`;
+          ? `Carry the momentum into ${nextHeat.name}, but avoid turning a landed call into a reckless follow-up.`
+          : `Reset the garage tone before ${nextHeat.name}. The rivalry is still alive, so the next clean result matters more than another stunt.`;
 
   return {
     label: pressureOutcome.label,
@@ -790,6 +815,21 @@ export class ChampionshipManager {
     );
   }
 
+  createReviewCupSummary() {
+    this.createReviewLateSeasonResolution();
+    void this.setPressureCall("bonus-clause");
+    const session = this.getCareerSession();
+    const targetId = session.pressureTargetId;
+
+    return this.applyCareerResult(
+      createDeterministicReviewCompletion(session, {
+        playerFinishPosition: 2,
+        playerCondition: 64,
+        fixedPlacements: targetId ? { [targetId]: 4 } : undefined,
+      }),
+    );
+  }
+
   getCareerSession() {
     const heat = this.getCurrentHeat() ?? TRACK_VARIANTS[0];
     return this.buildSessionConfig("career", heat, true);
@@ -832,6 +872,7 @@ export class ChampionshipManager {
       sponsorTargetHit: contractOutcome.success,
       purseEarned: playerResult.purseAwarded,
       finishPosition: playerResult.finishPosition,
+      didNotFinish: playerResult.didNotFinish ?? false,
       conditionAfter: playerResult.condition,
       bestLapMs: playerResult.bestLapMs,
       pressureCallLabel: completion.pressureCallLabel,
@@ -877,7 +918,7 @@ export class ChampionshipManager {
       contractOutcome,
       pressureOutcome,
       pressureAftermath,
-      storyBeat: buildStoryBeat(completion, currentHeatIndex, careerFinished, contractOutcome, pressureOutcome),
+      storyBeat: buildStoryBeat(completion, currentHeatIndex, careerFinished, contractOutcome, pressureOutcome, resolvedProfile),
     };
   }
 

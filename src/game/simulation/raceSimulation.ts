@@ -70,6 +70,7 @@ type CarState = {
   drafting: boolean;
   offTrack: boolean;
   contactCooldown: number;
+  retired: boolean;
   baseStats: RuntimeStats;
   aiSeed: number;
 };
@@ -137,6 +138,8 @@ function formatGapLabel(value: number, leader: boolean) {
   if (leader) return "Leader";
   return `+${Math.abs(value).toFixed(1)}s`;
 }
+
+const WRECK_RETIRE_MS = 2500;
 
 function buildTrack(centerline: Vector2[]): BuiltTrack {
   const segments: TrackSegment[] = [];
@@ -288,6 +291,7 @@ export class RaceSimulation {
   private countdownMs: number;
   private completion: RaceCompletion | null = null;
   private finishBufferMs = 0;
+  private wreckedMs = 0;
 
   constructor(config: RaceSessionConfig) {
     this.config = config;
@@ -320,6 +324,7 @@ export class RaceSimulation {
         drafting: false,
         offTrack: false,
         contactCooldown: 0,
+        retired: false,
         baseStats,
         aiSeed: index * 1.37 + driver.skill * 10,
       };
@@ -419,7 +424,7 @@ export class RaceSimulation {
   private strongestSlipstream(car: CarState) {
     let strongest = 0;
     for (const other of this.cars) {
-      if (other === car || other.finishTimeMs !== null) continue;
+      if (other === car || other.finishTimeMs !== null || other.retired) continue;
       strongest = Math.max(strongest, slipstreamPull(car, other));
     }
     return strongest;
@@ -474,8 +479,29 @@ export class RaceSimulation {
     car.condition = clamp(car.condition - passiveWear - offTrackWear - boostWear, 0, 100);
   }
 
+  private noteWreckedPlayer(dt: number) {
+    if (this.config.mode === "attract" || this.playerCar.finishTimeMs !== null || this.playerCar.retired) {
+      return;
+    }
+
+    if (this.countdownMs > 0 || this.playerCar.condition > 0) {
+      this.wreckedMs = 0;
+      return;
+    }
+
+    this.wreckedMs += dt * 1000;
+    if (this.wreckedMs < WRECK_RETIRE_MS) return;
+
+    this.playerCar.retired = true;
+    this.playerCar.vx = 0;
+    this.playerCar.vy = 0;
+    this.queueEvent({ type: "finish", position: this.cars.length });
+  }
+
   private updateRanks() {
     const ranking = [...this.cars].sort((left, right) => {
+      if (left.retired !== right.retired) return left.retired ? 1 : -1;
+
       if (left.finishTimeMs !== null && right.finishTimeMs !== null) {
         return left.finishTimeMs - right.finishTimeMs;
       }
@@ -553,13 +579,16 @@ export class RaceSimulation {
     }
 
     const playerFinished = this.playerCar.finishTimeMs !== null;
-    if (!playerFinished) return;
+    const playerRetired = this.playerCar.retired;
+    if (!playerFinished && !playerRetired) return;
 
-    const everyoneFinished = this.cars.every((car) => car.finishTimeMs !== null);
-    if (!everyoneFinished) {
-      this.finishBufferMs += 16.67;
-      if (this.finishBufferMs < (this.config.mode === "timeTrial" ? 1200 : 5200)) {
-        return;
+    if (!playerRetired) {
+      const everyoneFinished = this.cars.every((car) => car.finishTimeMs !== null);
+      if (!everyoneFinished) {
+        this.finishBufferMs += 16.67;
+        if (this.finishBufferMs < (this.config.mode === "timeTrial" ? 1200 : 5200)) {
+          return;
+        }
       }
     }
 
@@ -568,11 +597,12 @@ export class RaceSimulation {
     const results = [...this.cars]
       .sort((left, right) => left.rank - right.rank)
       .map((car) => {
-        const purseAwarded = car.grid.isPlayer && this.config.mode === "career"
+        const didNotFinish = car.retired;
+        const purseAwarded = car.grid.isPlayer && this.config.mode === "career" && !didNotFinish
           ? this.config.variant.purse[car.rank - 1] ?? 0
           : 0;
         const pointsAwarded =
-          this.config.mode === "career"
+          this.config.mode === "career" && !didNotFinish
             ? POINTS_TABLE[car.rank - 1] ?? 0
             : 0;
 
@@ -584,12 +614,13 @@ export class RaceSimulation {
           carNumber: car.grid.carNumber,
           sponsor: car.grid.sponsor,
           finishPosition: car.rank,
-          finishTimeMs: car.finishTimeMs,
+          finishTimeMs: didNotFinish ? null : car.finishTimeMs,
           bestLapMs: car.bestLapMs,
           pointsAwarded,
           purseAwarded,
           condition: Math.round(car.condition),
           isPlayer: car.grid.isPlayer,
+          didNotFinish,
         } satisfies RaceResultEntry;
       });
 
@@ -744,6 +775,7 @@ export class RaceSimulation {
       }
     }
 
+    this.noteWreckedPlayer(dt);
     this.updateRanks();
     this.finalizeIfReady();
 
@@ -767,6 +799,9 @@ export class RaceSimulation {
 
     const tutorialHint = (() => {
       if (this.config.mode === "attract") return null;
+      if (this.playerCar.retired || this.playerCar.condition <= 0) {
+        return "Condition is gone. This heat ends as a DNF.";
+      }
       if (this.playerCar.drafting) return "Draft. Stay tucked behind the car ahead and it pulls you down the straight.";
       if (this.config.variant.eventType === "showdown" && this.elapsedMs < 12000) {
         return "Showdown rounds cut the field down to headline names. There is nowhere to hide a lazy lap.";
@@ -782,8 +817,9 @@ export class RaceSimulation {
       return null;
     })();
 
-    const damageLabel =
-      this.playerCar.condition >= 80
+    const damageLabel = this.playerCar.retired || this.playerCar.condition <= 0
+      ? "Shell failed"
+      : this.playerCar.condition >= 80
         ? "Shell clean"
         : this.playerCar.condition >= 58
           ? "Panels bruised"
