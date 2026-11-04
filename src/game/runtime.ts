@@ -1,5 +1,5 @@
 ﻿import Phaser from "phaser";
-import { crazyGameplayStart, crazyGameplayStop, crazyHappytime } from "../integrations/crazygames";
+import { crazyGameplayStart, crazyGameplayStop, crazyHappytime, onCrazyAudioMute } from "../integrations/crazygames";
 import { AudioManager } from "./audio/audioManager";
 import { InputController } from "./input/controller";
 import { BootScene } from "./phaser/scenes/BootScene";
@@ -35,6 +35,7 @@ export class TurboVectorRuntime {
   constructor(mount: HTMLElement, callbacks: RuntimeCallbacks) {
     this.mount = mount;
     this.callbacks = callbacks;
+    onCrazyAudioMute((muted) => this.audio.setPlatformMuted(muted));
     this.raceScene = new RaceScene({
       advance: (deltaSeconds) => this.advance(deltaSeconds),
       getSnapshot: () => this.latestRenderSnapshot,

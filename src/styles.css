@@ -42,6 +42,12 @@ body,
 }
 
 body {
+  /* CrazyGames mobile requirement: no text selection or magnifier on long press. */
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
   font-family: var(--font-body);
   color: var(--text);
   background:
