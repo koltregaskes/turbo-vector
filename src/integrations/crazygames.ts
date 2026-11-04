@@ -14,12 +14,23 @@
  * Lifecycle contract:
  *   - call `crazyGameplayStart()` when an actual race begins
  *   - call `crazyGameplayStop()` when the race ends, pauses, or returns to menu
+ *
+ * Audio: CrazyGames can ask the game to stay silent (`SDK.game.settings.muteAudio`), and that
+ * setting must win over the in-game audio options. `onCrazyAudioMute()` reports it once the SDK
+ * is ready and again whenever the setting changes.
  */
+
+interface CrazyGamesSettings {
+  muteAudio?: boolean;
+  disableChat?: boolean;
+}
 
 interface CrazyGamesGameModule {
   gameplayStart?: () => void;
   gameplayStop?: () => void;
   happytime?: () => void;
+  settings?: CrazyGamesSettings;
+  addSettingsChangeListener?: (listener: (settings: CrazyGamesSettings) => void) => void;
 }
 
 interface CrazyGamesSDK {
@@ -40,6 +51,8 @@ declare global {
 let gameplayActive = false;
 let insideCrazyGames: boolean | null = null;
 let sdkState: "idle" | "initialising" | "ready" | "failed" = "idle";
+let audioMuteListener: ((muted: boolean) => void) | null = null;
+let settingsListenerAdded = false;
 
 const CRAZYGAMES_HOST = /(^|\.)crazygames\.(com|[a-z]{2}|co\.[a-z]{2}|com\.[a-z]{2})$/i;
 
@@ -96,6 +109,7 @@ export function initCrazyGames(): void {
     .then(
       () => {
         sdkState = "ready";
+        watchAudioSetting();
         if (!gameplayActive) return;
         try {
           sdk.game?.gameplayStart?.();
@@ -108,6 +122,30 @@ export function initCrazyGames(): void {
         console.warn("[crazygames] SDK init failed:", error);
       },
     );
+}
+
+/** Push the platform mute setting to the listener now, and subscribe to later changes once. */
+function watchAudioSetting(): void {
+  const game = getSdk()?.game;
+  if (!game || !audioMuteListener) return;
+  try {
+    audioMuteListener(Boolean(game.settings?.muteAudio));
+    if (!settingsListenerAdded && game.addSettingsChangeListener) {
+      settingsListenerAdded = true;
+      game.addSettingsChangeListener((settings) => audioMuteListener?.(Boolean(settings?.muteAudio)));
+    }
+  } catch (error) {
+    console.warn("[crazygames] reading audio settings failed:", error);
+  }
+}
+
+/**
+ * Register the one handler for the CrazyGames `muteAudio` setting. It fires once the SDK is ready
+ * (immediately if it already is) and on every settings change. Off CrazyGames it never fires.
+ */
+export function onCrazyAudioMute(listener: (muted: boolean) => void): void {
+  audioMuteListener = listener;
+  if (sdkState === "ready") watchAudioSetting();
 }
 
 export function crazyGameplayStart(): void {

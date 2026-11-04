@@ -20,22 +20,34 @@ export class AudioManager {
   private options: AudioOptions = { ...DEFAULT_AUDIO_OPTIONS };
   private musicTracks: Partial<Record<"menu" | "race", HTMLAudioElement>> = {};
   private activeTrack: HTMLAudioElement | null = null;
+  /** Set by the host platform (CrazyGames `muteAudio`); overrides the player's own options. */
+  private platformMuted = false;
 
   getOptions() {
     return { ...this.options };
   }
 
+  setPlatformMuted(muted: boolean) {
+    if (this.platformMuted === muted) return;
+    this.platformMuted = muted;
+    this.setOptions(this.options);
+  }
+
+  private isMuted() {
+    return this.options.muted || this.platformMuted;
+  }
+
   setOptions(options: AudioOptions) {
     this.options = { ...options };
-    if (!this.masterNode || !this.musicNode || !this.sfxNode) return;
-
-    const masterVolume = options.muted ? 0 : clamp(options.master, 0, 1);
-    this.masterNode.gain.setTargetAtTime(masterVolume, this.context!.currentTime, 0.02);
-    this.musicNode.gain.setTargetAtTime(clamp(options.music, 0, 1) * 0.18, this.context!.currentTime, 0.03);
-    this.sfxNode.gain.setTargetAtTime(clamp(options.sfx, 0, 1) * 0.25, this.context!.currentTime, 0.03);
     if (this.activeTrack) {
       this.activeTrack.volume = this.musicVolume();
     }
+    if (!this.masterNode || !this.musicNode || !this.sfxNode) return;
+
+    const masterVolume = this.isMuted() ? 0 : clamp(options.master, 0, 1);
+    this.masterNode.gain.setTargetAtTime(masterVolume, this.context!.currentTime, 0.02);
+    this.musicNode.gain.setTargetAtTime(clamp(options.music, 0, 1) * 0.18, this.context!.currentTime, 0.03);
+    this.sfxNode.gain.setTargetAtTime(clamp(options.sfx, 0, 1) * 0.25, this.context!.currentTime, 0.03);
   }
 
   async ensureStarted() {
@@ -95,7 +107,7 @@ export class AudioManager {
   }
 
   private musicVolume() {
-    return this.options.muted ? 0 : clamp(this.options.master, 0, 1) * clamp(this.options.music, 0, 1);
+    return this.isMuted() ? 0 : clamp(this.options.master, 0, 1) * clamp(this.options.music, 0, 1);
   }
 
   private ensureTrack(name: "menu" | "race") {
