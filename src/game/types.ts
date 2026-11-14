@@ -217,6 +217,7 @@ export type HeatHistory = {
   sponsorTargetHit: boolean;
   purseEarned: number;
   finishPosition: number;
+  didNotFinish?: boolean;
   conditionAfter: number;
   bestLapMs: number | null;
   pressureCallLabel: string | null;
@@ -365,6 +366,7 @@ export type RaceResultEntry = {
   purseAwarded: number;
   condition: number;
   isPlayer: boolean;
+  didNotFinish?: boolean;
 };
 
 export type RaceCompletion = {

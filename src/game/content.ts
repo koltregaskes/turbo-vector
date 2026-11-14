@@ -663,7 +663,7 @@ export const TRACK_VARIANTS: TrackVariant[] = [
     eventTypeLabel: "Storm endurance",
     overview: "The finale runs under a storm wall where the skyline is half light, half threat, and the season finally asks the whole garage to matter.",
     briefing:
-      "This is the full-career proof point: bad weather, long distance, stronger rivals, and enough accumulated consequence that every repair and upgrade choice should show up on track.",
+      "The finale is the long one: bad weather, long distance, stronger rivals, and every repair and upgrade choice shows up on track.",
     objective: "Bring the season home with a car that still responds, a wallet that still matters, and a result worth replaying for.",
     ambience: "dusk",
     laps: 5,
@@ -680,7 +680,7 @@ export const TRACK_VARIANTS: TrackVariant[] = [
     tutorialFocus: [
       "Storm rounds are not won by heroics alone. A half-broken car will lie to you about what it can still do.",
       "Save the biggest nitro punch for a clean exit, not a desperate entry under bad weather.",
-      "If this finale makes you want another full season immediately, the Phase 2 foundation is doing its job.",
+      "Bring the car home in one piece. The points table after this race decides the cup.",
     ],
     heatTag: "The storm finale is where the whole garage loop either pays off or exposes itself.",
     gripModifier: 0.84,

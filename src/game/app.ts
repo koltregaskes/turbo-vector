@@ -1,6 +1,6 @@
 ﻿import { RIVALS, TRACK_VARIANTS, UPGRADE_DEFINITIONS } from "./content";
 import { TurboVectorRuntime } from "./runtime";
-import { ChampionshipManager } from "./simulation/championship";
+import { ChampionshipManager, describeCupResult } from "./simulation/championship";
 import type {
   CareerResolution,
   PressureCallKey,
@@ -297,8 +297,8 @@ export function createTurboVectorApp(root: HTMLElement, options: TurboVectorAppO
       </main>
 
       <footer class="tv-footer">
-        <span>Phase 2 web build: longer career, richer garage, stronger track identity</span>
-        <span>South coast season foundation in active development</span>
+        <span>Seven-round cup. Lead the points table to be champion.</span>
+        <span>A car at 0% condition is retired from that race.</span>
       </footer>
     </div>
   `;
@@ -422,7 +422,7 @@ export function createTurboVectorApp(root: HTMLElement, options: TurboVectorAppO
           ? `${pressureAftermath.reportHeadline} ${currentHeat?.name ?? "The next heat"} is next.`
         : state.screen === "results" && state.completion
           ? `${state.completion.title} closed under ${state.completion.weatherLabel.toLowerCase()}, and the garage now has to live with the result.`
-          : currentHeat?.overview ?? "Build the Super Cars answer: rivals, garage economy, and one more championship momentum.";
+          : currentHeat?.overview ?? "Seven rounds decide the cup. The points leader is champion.";
 
     topbarMeta.innerHTML = `
       <div class="tv-chip">
@@ -457,7 +457,7 @@ export function createTurboVectorApp(root: HTMLElement, options: TurboVectorAppO
       }
       <div class="tv-chip tv-chip--notice">
         <span>Series</span>
-        <strong>${state.notice || (currentHeat ? `${currentHeat.series} // ${currentHeat.weatherLabel}` : "Expanded career build in progress")}</strong>
+        <strong>${state.notice || (currentHeat ? `${currentHeat.series} // ${currentHeat.weatherLabel}` : "Seven-round cup complete")}</strong>
       </div>
     `;
   }
@@ -474,12 +474,12 @@ export function createTurboVectorApp(root: HTMLElement, options: TurboVectorAppO
     overlayLayer.innerHTML = `
       <div class="tv-screen tv-screen--menu">
         <div class="tv-hero-card">
-          <p class="tv-eyebrow">Phase 2 career foundation</p>
+          <p class="tv-eyebrow">Seven-round cup</p>
           <h2>South coast career season</h2>
           <p>
-            The web build now stretches beyond the rookie opener: multiple circuits, recurring rivals, sponsor
-            contracts, weather-driven grip shifts, endurance pressure, showdown events, and a garage that has to
-            sustain a full season rather than three isolated races.
+            Race seven rounds across Southport Marina, Breaker Point, and Vector Mile.
+            Lead the points table when the season ends and the cup names you champion.
+            Finish behind the leader and it names you an also-ran.
           </p>
           <div class="tv-action-grid">
             <button class="tv-button" data-action="menu-career">${activeLabel}</button>
@@ -534,6 +534,16 @@ export function createTurboVectorApp(root: HTMLElement, options: TurboVectorAppO
           <h2>${session.title}</h2>
           <p>${session.briefing}</p>
           <div class="tv-kicker-grid">
+            ${
+              session.mode === "career"
+                ? `
+                  <div class="tv-kicker">
+                    <span>Season goal</span>
+                    <strong>Lead the points table after seven rounds to be champion. Finish behind and the cup names you an also-ran.</strong>
+                  </div>
+                `
+                : ""
+            }
             <div class="tv-kicker">
               <span>Series</span>
               <strong>${session.variant.series}</strong>
@@ -710,7 +720,7 @@ export function createTurboVectorApp(root: HTMLElement, options: TurboVectorAppO
       <div class="tv-screen tv-screen--menu">
         <div class="tv-dialog tv-dialog--wide">
           <p class="tv-eyebrow">${completion.series} // ${completion.eventTypeLabel}</p>
-          <h2>${completion.playerResult.finishPosition === 1 ? "Event Won" : `Finished P${completion.playerResult.finishPosition}`}</h2>
+          <h2>${completion.playerResult.didNotFinish ? "Did Not Finish" : completion.playerResult.finishPosition === 1 ? "Event Won" : `Finished P${completion.playerResult.finishPosition}`}</h2>
           <p>${state.notice}</p>
           <div class="tv-kicker-grid">
             <div class="tv-kicker">
@@ -771,7 +781,7 @@ export function createTurboVectorApp(root: HTMLElement, options: TurboVectorAppO
                   <div class="tv-results-row ${result.isPlayer ? "is-player" : ""}">
                     <span>P${result.finishPosition}</span>
                     <strong>${result.name}</strong>
-                    <span>${formatTime(result.finishTimeMs)}</span>
+                    <span>${result.didNotFinish ? "DNF" : formatTime(result.finishTimeMs)}</span>
                     <span>${formatShortTime(result.bestLapMs)}</span>
                     <span>${completion.mode === "career" ? `${result.pointsAwarded} pts` : result.isPlayer && completion.didSetTimeTrialRecord ? "Record" : "--"}</span>
                   </div>
@@ -1008,7 +1018,7 @@ export function createTurboVectorApp(root: HTMLElement, options: TurboVectorAppO
                     <div class="tv-garage-log">
                       <div class="tv-garage-log__headline">
                         <strong>${lastEvent.title}</strong>
-                        <span>${formatPosition(lastEvent.finishPosition)} finish</span>
+                        <span>${lastEvent.didNotFinish ? "DNF" : `${formatPosition(lastEvent.finishPosition)} finish`}</span>
                       </div>
                       <div class="tv-mini-table">
                         <div class="tv-mini-row"><span>Purse</span><strong>${formatCredits(lastEvent.purseEarned)}</strong></div>
@@ -1252,12 +1262,19 @@ export function createTurboVectorApp(root: HTMLElement, options: TurboVectorAppO
   function renderCupSummaryOverlay() {
     const profile = manager.getProfile();
     const careerResolution = state.careerResolution;
+    const verdict = describeCupResult(profile.standings);
     overlayLayer.innerHTML = `
       <div class="tv-screen tv-screen--menu">
         <div class="tv-dialog tv-dialog--wide">
-          <p class="tv-eyebrow">Career summary</p>
-          <h2>Season complete</h2>
-          <p>${state.notice}</p>
+          <p class="tv-eyebrow">Seven-round cup</p>
+          <h2>${verdict.title}</h2>
+          <p>${verdict.summary}</p>
+          <div class="tv-kicker-grid">
+            <div class="tv-kicker">
+              <span>Rounds</span>
+              <strong>${profile.history.length} of ${TRACK_VARIANTS.length}</strong>
+            </div>
+          </div>
           <div class="tv-results-table">
             ${profile.standings
               .map(
@@ -1283,7 +1300,7 @@ export function createTurboVectorApp(root: HTMLElement, options: TurboVectorAppO
                   (event) => `
                     <div class="tv-mini-row">
                       <span>${event.subtitle} // ${event.setupLabel}</span>
-                      <strong>${formatPosition(event.finishPosition)}${event.sponsorTargetHit ? ` // +${formatCredits(event.sponsorBonus)}` : ""}</strong>
+                      <strong>${event.didNotFinish ? "DNF" : formatPosition(event.finishPosition)}${event.sponsorTargetHit ? ` // +${formatCredits(event.sponsorBonus)}` : ""}</strong>
                     </div>
                   `,
                 )
@@ -1322,13 +1339,24 @@ export function createTurboVectorApp(root: HTMLElement, options: TurboVectorAppO
     const selectedSetup = state.activeSession?.teamSetup ?? manager.getSelectedSetup();
 
     sidebarPrimary.innerHTML = `
-      <p class="tv-card__eyebrow">${state.screen === "race" ? "Event brief" : "Studio brief"}</p>
-      <h3>${state.screen === "race" ? activeVariant.name : "Manager handoff loaded"}</h3>
-      <p>${state.screen === "race" ? activeVariant.heatTag : "Rebuild the shallow racer into a wider career: more circuits, more rival identity, more consequence, and more reasons to keep going."}</p>
+      <p class="tv-card__eyebrow">${state.screen === "race" ? "Event brief" : "Season goal"}</p>
+      <h3>${state.screen === "race" ? activeVariant.name : "Win the seven-round cup"}</h3>
+      <p>${state.screen === "race" ? activeVariant.heatTag : "Lead the points table after round 7 to be champion. Anyone short of that is an also-ran."}</p>
       <ul class="tv-bullet-list">
-        <li>Three circuit identities across a seven-round season</li>
-        <li>Weather, hazards, and wear must matter between races</li>
-        <li>The garage should still feel aspirational, not spreadsheet-heavy</li>
+        ${(state.screen === "race"
+          ? [
+              "Three circuit identities across a seven-round season",
+              "Weather, hazards, and wear must matter between races",
+              "The garage should still feel aspirational, not spreadsheet-heavy",
+            ]
+          : [
+              "Seven rounds, then the cup summary",
+              "Champion means you lead the points table",
+              "0% condition ends that race as a DNF",
+            ]
+        )
+          .map((line) => `<li>${line}</li>`)
+          .join("")}
       </ul>
     `;
 
@@ -1491,12 +1519,12 @@ export function createTurboVectorApp(root: HTMLElement, options: TurboVectorAppO
     }
 
     if (surface === "season-summary") {
-      const reviewResolution = manager.createReviewLateSeasonResolution();
+      const reviewResolution = manager.createReviewCupSummary();
       clearOverlayState();
       state.completion = reviewResolution.completion;
       state.careerResolution = reviewResolution;
       state.screen = "cupSummary";
-      state.notice = "Review mode // season-complete cup summary loaded with the authored final pressure ledger.";
+      state.notice = reviewResolution.storyBeat;
       runtime.startGarageTheme();
       renderAll();
       return;
